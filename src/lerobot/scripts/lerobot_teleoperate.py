@@ -14,10 +14,11 @@ from pprint import pformat
 import numpy as np
 
 from lerobot.configs import parser
-from lerobot.robots import Robot, RobotConfig, arx5_follower, make_robot_from_config  # noqa: F401
+from lerobot.robots import Robot, RobotConfig, arx5_follower, bi_arx5, make_robot_from_config  # noqa: F401
 from lerobot.teleoperators import (  # noqa: F401
     Teleoperator,
     TeleoperatorConfig,
+    bi_quest3_webxr,
     make_teleoperator_from_config,
     quest3_webxr,
 )
@@ -111,10 +112,18 @@ def quest_teleop_loop(
         if hasattr(teleop, "get_reset_button") and teleop.get_reset_button():
             try:
                 if dryrun:
-                    if hasattr(robot, "get_start_eef_pose"):
+                    if teleop.name == "bi_quest3_webxr" and hasattr(robot, "get_current_tcp_poses_euler"):
+                        left_pose, right_pose = robot.get_current_tcp_poses_euler()
+                        teleop.reset_to_pose(left_pose[:6], right_pose[:6], left_pose[6], right_pose[6])
+                    elif hasattr(robot, "get_start_eef_pose"):
                         eef = robot.get_start_eef_pose()
                         teleop.reset_to_pose(eef[:6], float(eef[6]))
                     logger.info("Quest3 reset requested (dryrun: robot motion skipped)")
+                elif teleop.name == "bi_quest3_webxr" and hasattr(robot, "smooth_go_start"):
+                    robot.smooth_go_start(duration=2.0)
+                    left_pose, right_pose = robot.get_current_tcp_poses_euler()
+                    teleop.reset_to_pose(left_pose[:6], right_pose[:6], left_pose[6], right_pose[6])
+                    logger.info("Quest3 reset: BiARX5 moved to start pose")
                 elif hasattr(robot, "smooth_go_start") and hasattr(robot, "get_start_eef_pose"):
                     robot.smooth_go_start(duration=2.0)
                     eef = robot.get_start_eef_pose()
@@ -149,12 +158,23 @@ def quest_teleop_loop(
         else:
             enabled = "ON " if getattr(teleop, "_enabled", False) else "OFF"
             stale = "STALE" if getattr(teleop, "_is_stale", lambda: True)() else "LIVE "
-            grip = robot_action_to_send.get("gripper.pos", 0.0)
-            pos_str = (
-                f"pos=[{robot_action_to_send.get('tcp.x', 0.0):+.3f}, "
-                f"{robot_action_to_send.get('tcp.y', 0.0):+.3f}, "
-                f"{robot_action_to_send.get('tcp.z', 0.0):+.3f}]"
-            )
+            if teleop.name == "bi_quest3_webxr":
+                grip = robot_action_to_send.get("right_gripper.pos", 0.0)
+                pos_str = (
+                    f"L=[{robot_action_to_send.get('left_tcp.x', 0.0):+.3f},"
+                    f"{robot_action_to_send.get('left_tcp.y', 0.0):+.3f},"
+                    f"{robot_action_to_send.get('left_tcp.z', 0.0):+.3f}] "
+                    f"R=[{robot_action_to_send.get('right_tcp.x', 0.0):+.3f},"
+                    f"{robot_action_to_send.get('right_tcp.y', 0.0):+.3f},"
+                    f"{robot_action_to_send.get('right_tcp.z', 0.0):+.3f}]"
+                )
+            else:
+                grip = robot_action_to_send.get("gripper.pos", 0.0)
+                pos_str = (
+                    f"pos=[{robot_action_to_send.get('tcp.x', 0.0):+.3f}, "
+                    f"{robot_action_to_send.get('tcp.y', 0.0):+.3f}, "
+                    f"{robot_action_to_send.get('tcp.z', 0.0):+.3f}]"
+                )
             dryrun_tag = "[DRYRUN] " if dryrun else ""
             print(
                 f"\r\033[K{dryrun_tag}{loop_s * 1e3:5.1f}ms ({1 / loop_s:4.0f}Hz) | "
@@ -173,27 +193,34 @@ def teleoperate(cfg: TeleoperateConfig) -> None:
     if cfg.dryrun:
         logger.warn("DRYRUN MODE ENABLED - Actions will be printed but NOT sent to robot")
 
-    if cfg.robot.type != "arx5_follower":
+    supported_pairs = {
+        ("arx5_follower", "quest3_webxr"),
+        ("bi_arx5", "bi_quest3_webxr"),
+    }
+    if (cfg.robot.type, cfg.teleop.type) not in supported_pairs:
         raise ValueError(
-            f"This reduced build only supports --robot.type=arx5_follower, got {cfg.robot.type!r}"
-        )
-    if cfg.teleop.type != "quest3_webxr":
-        raise ValueError(
-            "This reduced build only supports --teleop.type=quest3_webxr, "
-            f"got {cfg.teleop.type!r}"
+            "This reduced build supports only "
+            "arx5_follower+quest3_webxr and bi_arx5+bi_quest3_webxr, "
+            f"got {cfg.robot.type!r}+{cfg.teleop.type!r}"
         )
 
     robot = None
     teleop = None
     try:
-        logger.info(f"Detected ARX5 Follower + {cfg.teleop.type}")
+        logger.info(f"Detected {cfg.robot.type} + {cfg.teleop.type}")
         robot = make_robot_from_config(cfg.robot)
         robot.connect()
 
         teleop = make_teleoperator_from_config(cfg.teleop)
-        current_pose = robot.get_current_tcp_pose_euler()
-        logger.info(f"Current TCP pose (euler+gripper): {current_pose}")
-        teleop.connect(current_tcp_pose_euler=current_pose)
+        if cfg.robot.type == "bi_arx5":
+            left_pose, right_pose = robot.get_current_tcp_poses_euler()
+            logger.info(f"Current left TCP pose (euler+gripper): {left_pose}")
+            logger.info(f"Current right TCP pose (euler+gripper): {right_pose}")
+            teleop.connect(left_tcp_pose_euler=left_pose, right_tcp_pose_euler=right_pose)
+        else:
+            current_pose = robot.get_current_tcp_pose_euler()
+            logger.info(f"Current TCP pose (euler+gripper): {current_pose}")
+            teleop.connect(current_tcp_pose_euler=current_pose)
 
         quest_teleop_loop(
             teleop=teleop,

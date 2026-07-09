@@ -761,12 +761,12 @@ Linux 当前用户没有 Quest USB 设备访问权限，`adb reverse` 未建立�
 
 目标：
 
-保留 LeRobot 文件格式和 `lerobot-teleoperate` 启动方式，只保留 WebXR 控制 ARX5 的必要逻辑。
+保留 LeRobot 文件格式和 `lerobot-teleoperate` 启动方式，只保留 WebXR 控制 ARX5 单臂/双臂的必要逻辑。
 
 处理：
 
 - 根目录直接放 `src/lerobot`。
-- 只保留 `arx5_follower` 和 `quest3_webxr`。
+- 保留 `arx5_follower` / `quest3_webxr` 和 `bi_arx5` / `bi_quest3_webxr`。
 - 删除旧接收方式、旧标定脚本和旧注册。
 - 将已验证的控制算法内聚到：
 

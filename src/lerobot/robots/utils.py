@@ -23,7 +23,11 @@ def make_robot_from_config(config: RobotConfig) -> Robot:
         from .arx5_follower.arx5_follower import ARX5Follower
 
         return ARX5Follower(config)
-    raise ValueError(f"This reduced build only supports arx5_follower, got {config.type!r}")
+    if config.type == "bi_arx5":
+        from .bi_arx5.bi_arx5 import BiARX5
+
+        return BiARX5(config)
+    raise ValueError(f"This reduced build only supports arx5_follower and bi_arx5, got {config.type!r}")
 
 
 # TODO(pepijn): Move to pipeline step to make sure we don't have to do this in the robot code and send action to robot is clean for use in dataset

@@ -17,3 +17,4 @@
 from .config import RobotConfig
 from .robot import Robot
 from .utils import make_robot_from_config
+from . import arx5_follower, bi_arx5  # noqa: F401

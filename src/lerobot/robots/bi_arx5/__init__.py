@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2025 The HuggingFace Inc. team. All rights reserved.
+# Copyright 2025 The XenseRobotics Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .config import TeleoperatorConfig  # noqa: F401
-from .teleoperator import Teleoperator  # noqa: F401
-from .utils import TeleopEvents, make_teleoperator_from_config  # noqa: F401
-from . import quest3_webxr  # noqa: F401
-from . import bi_quest3_webxr  # noqa: F401
+from .bi_arx5 import BiARX5  # noqa: F401
+from .config_bi_arx5 import BiARX5Config  # noqa: F401

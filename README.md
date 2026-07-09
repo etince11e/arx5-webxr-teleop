@@ -1,6 +1,6 @@
 # ARX5 + Quest 3 WebXR Teleoperation
 
-这是一个精简后的 LeRobot 风格项目，只保留单臂 ARX5 和 Quest 3 WebXR 遥操作链路。启动方式保持为：
+这是一个精简后的 LeRobot 风格项目，保留 ARX5 单臂/双臂和 Quest 3 WebXR 遥操作链路。单臂启动方式保持为：
 
 ```bash
 lerobot-teleoperate \
@@ -18,7 +18,9 @@ lerobot-teleoperate \
 arx5-webxr-teleop/
   src/lerobot/
     robots/arx5_follower/
+    robots/bi_arx5/
     teleoperators/quest3_webxr/
+    teleoperators/bi_quest3_webxr/
     scripts/lerobot_teleoperate.py
   vr-teleop-kit/
     src/vr_teleop_kit/relay/
@@ -30,7 +32,7 @@ arx5-webxr-teleop/
   pyproject.toml
 ```
 
-`src/lerobot` 保留 LeRobot 的包格式和配置解析方式；`quest3_webxr` 内部包含 WebXR 接收、Quest 手柄到 ARX5 TCP 的映射、滤波、限速、warmup、连续夹爪控制等逻辑。
+`src/lerobot` 保留 LeRobot 的包格式和配置解析方式；`quest3_webxr` / `bi_quest3_webxr` 内部包含 WebXR 接收、Quest 手柄到 ARX5 TCP 的映射、滤波、限速、warmup、连续夹爪控制等逻辑。
 
 ## 2. 环境配置
 
@@ -248,6 +250,49 @@ lerobot-teleoperate \
   --robot.home_move_duration_s=6.0
 ```
 
+双臂 dryrun：
+
+```bash
+lerobot-teleoperate \
+  --robot.type=bi_arx5 \
+  --robot.control_mode=cartesian_control \
+  --robot.enable_tactile_sensors=false \
+  --robot.cameras='{}' \
+  --teleop.type=bi_quest3_webxr \
+  --teleop.ws_url=ws://127.0.0.1:8443/ws \
+  --fps=30 \
+  --teleop.pos_sensitivity=0.5 \
+  --teleop.max_pos_velocity=1.0 \
+  --teleop.max_rot_velocity=0.8 \
+  --teleop.control_orientation=False \
+  --dryrun=True
+```
+
+双臂真机控制：
+
+```bash
+lerobot-teleoperate \
+  --robot.type=bi_arx5 \
+  --robot.control_mode=cartesian_control \
+  --robot.enable_tactile_sensors=false \
+  --robot.cameras='{}' \
+  --teleop.type=bi_quest3_webxr \
+  --teleop.ws_url=ws://127.0.0.1:8443/ws \
+  --fps=30 \
+  --teleop.pos_sensitivity=0.5 \
+  --teleop.max_pos_velocity=1.0 \
+  --teleop.max_rot_velocity=0.8 \
+  --teleop.control_orientation=False
+```
+
+双臂默认使用：
+
+```text
+left_arm_port=can1, right_arm_port=can3
+left_gripper_open=1.57, right_gripper_open=1.57
+robot.gripper_vel_max=20.0
+```
+
 ## 5. 标定
 
 Quest 3 手柄虚拟 TCP 标定：
@@ -280,6 +325,23 @@ lerobot-teleoperate \
   --teleop.ws_url=ws://127.0.0.1:8443/ws \
   --teleop.controller_tcp_offset_xyz="[-0.014441,-0.021764,-0.098030]" \
   --robot.tcp_offset_xyz="[0.032896,0.002644,-0.006774]" \
+  --fps=30
+```
+
+双臂可以分别传左右手柄 TCP 和左右机械臂 TCP：
+
+```bash
+lerobot-teleoperate \
+  --robot.type=bi_arx5 \
+  --robot.control_mode=cartesian_control \
+  --robot.enable_tactile_sensors=false \
+  --robot.cameras='{}' \
+  --teleop.type=bi_quest3_webxr \
+  --teleop.ws_url=ws://127.0.0.1:8443/ws \
+  --teleop.left_controller_tcp_offset_xyz="[左手柄x,左手柄y,左手柄z]" \
+  --teleop.right_controller_tcp_offset_xyz="[右手柄x,右手柄y,右手柄z]" \
+  --robot.left_tcp_offset_xyz="[左臂x,左臂y,左臂z]" \
+  --robot.right_tcp_offset_xyz="[右臂x,右臂y,右臂z]" \
   --fps=30
 ```
 

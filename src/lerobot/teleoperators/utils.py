@@ -37,6 +37,10 @@ def make_teleoperator_from_config(config: TeleoperatorConfig) -> "Teleoperator":
         from .quest3_webxr.teleop_quest3_webxr import Quest3WebXRTeleop
 
         return Quest3WebXRTeleop(config)
+    if config.type == "bi_quest3_webxr":
+        from .bi_quest3_webxr.bi_quest3_webxr import BiQuest3WebXR
+
+        return BiQuest3WebXR(config)
     raise ValueError(
-        f"This reduced build only supports quest3_webxr, got {config.type!r}"
+        f"This reduced build only supports quest3_webxr and bi_quest3_webxr, got {config.type!r}"
     )
