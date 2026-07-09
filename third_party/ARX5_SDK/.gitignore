@@ -1,0 +1,26 @@
+# Build directories
+build/
+build*/
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+_deps/
+
+# Compiled Python extensions
+*cpython*.so
+*.pyd
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Data / output
+python/data/
+
+# IDE
+.vscode/
+.idea/
+
+# CMake compile commands cache
+.cache/

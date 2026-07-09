@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arx5-webxr-teleop"
+version = "0.5.1+arx5.webxr"
+description = "Reduced LeRobot-style build for ARX5 + Quest 3 WebXR teleoperation"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26.4,<2.0.0",
+    "draccus==0.10.0",
+    "websockets>=15.0,<17.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "huggingface-hub>=0.27.0",
+    "spdlog",
+    "termcolor>=2.4.0,<4.0.0",
+    "pyrealsense2",
+]
+
+[project.optional-dependencies]
+arx5 = ["pyarx"]
+
+[project.scripts]
+lerobot-teleoperate = "lerobot.scripts.lerobot_teleoperate:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
