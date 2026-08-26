@@ -1,6 +1,10 @@
 # ARX5 + Quest 3 WebXR Teleoperation
 
-这是一个精简后的 LeRobot 风格项目，保留 ARX5 单臂/双臂和 Quest 3 WebXR 遥操作链路。单臂启动方式保持为：
+Languages: [English](README.md) | [中文](README-zh.md) | [Français](README-fr.md)
+
+Data-flow guides: [English](README_DETAILED_CHAIN.md) | [中文](README_DETAILED_CHAIN-zh.md) | [Français](README_DETAILED_CHAIN-fr.md)
+
+This is a compact LeRobot-style project for single-arm and bimanual ARX5 teleoperation with a Quest 3 WebXR controller. The single-arm launch command is:
 
 ```bash
 lerobot-teleoperate \
@@ -10,9 +14,9 @@ lerobot-teleoperate \
   --teleop.ws_url=ws://127.0.0.1:8443/ws
 ```
 
-网页端继续使用 `vr-teleop-kit` 原始 WebXR 页面和 `vr-teleop-relay`，没有额外 wrapper。
+The browser uses the original `vr-teleop-kit` WebXR page and `vr-teleop-relay`; no wrapper is required.
 
-## 1. 项目结构
+## 1. Project layout
 
 ```text
 arx5-webxr-teleop/
@@ -32,72 +36,43 @@ arx5-webxr-teleop/
   pyproject.toml
 ```
 
-`src/lerobot` 保留 LeRobot 的包格式和配置解析方式；`quest3_webxr` / `bi_quest3_webxr` 内部包含 WebXR 接收、Quest 手柄到 ARX5 TCP 的映射、滤波、限速、warmup、连续夹爪控制等逻辑。
+The `src/lerobot` package keeps LeRobot's configuration and CLI conventions. The WebXR teleoperators implement frame reception, Quest-to-ARX5 TCP mapping, filtering, rate limiting, warm-up, and continuous gripper control.
 
-## 2. 环境配置
+## 2. Environment setup
 
-当前项目路径：
+The original development paths are:
 
 ```text
 /home/jiang-yifeng/桌面/quest_arx_web/arx5-webxr-teleop
-```
-
-当前推荐环境：
-
-```text
 /home/jiang-yifeng/miniforge3/envs/arx5-webxr-teleop
 ```
 
-当前环境中的命令入口：
+### 2.1 Create the environment from scratch
 
-```text
-/home/jiang-yifeng/miniforge3/envs/arx5-webxr-teleop/bin/vr-teleop-relay
-/home/jiang-yifeng/miniforge3/envs/arx5-webxr-teleop/bin/lerobot-teleoperate
-```
-
-### 2.1 从零创建环境
-
-推荐使用 mamba：
+Create the environment with mamba:
 
 ```bash
 cd /home/jiang-yifeng/桌面/quest_arx_web/arx5-webxr-teleop
 mamba env create -f environment.yml
 mamba activate arx5-webxr-teleop
-```
-
-安装当前项目和 WebXR relay。这里不要加 `--no-deps`，因为 relay 需要 `fastapi/uvicorn` 才能启动网页和 `/ws`：
-
-```bash
 python -m pip install -e .
 python -m pip install -e ./vr-teleop-kit
-```
-
-安装 ARX5 SDK Python binding：
-
-```bash
 python -m pip install -e ./third_party/ARX5_SDK --no-build-isolation --no-deps
 ```
 
-### 2.2 已有环境补装依赖
+### 2.2 Add missing dependencies to an existing environment
 
-如果之前用 `--no-deps` 安装过，可能会缺少 relay 和 LeRobot 基础依赖。按下面方式修复当前环境：
+If an earlier `--no-deps` installation omitted the base dependencies, repair it with:
 
 ```bash
 mamba activate arx5-webxr-teleop
 cd /home/jiang-yifeng/桌面/quest_arx_web/arx5-webxr-teleop
-
 python -m pip install fastapi uvicorn[standard] draccus websockets huggingface-hub spdlog termcolor
 python -m pip install -e .
 python -m pip install -e ./vr-teleop-kit
 ```
 
-当前 ARX5 控制链路只需要 relay 的网页和 WebSocket，所以 WebRTC 视频依赖是可选的。需要相机视频流时再安装：
-
-```bash
-python -m pip install av aiortc opencv-python-headless
-```
-
-检查加载路径：
+WebRTC video is optional. Install `av aiortc opencv-python-headless` only when a camera stream is needed. Verify that imports resolve to this checkout:
 
 ```bash
 python - <<'PY'
@@ -108,32 +83,22 @@ print("pyarx:", pyarx.__file__)
 PY
 ```
 
-期望都指向当前仓库目录。
+## 3. Start the WebXR relay
 
-## 3. 启动 WebXR Relay
-
-USB 调试推荐：
+On the PC:
 
 ```bash
 mamba activate arx5-webxr-teleop
 vr-teleop-relay --host 127.0.0.1 --port 8443
 ```
 
-另开终端：
+For USB debugging, use another terminal:
 
 ```bash
 adb reverse tcp:8443 tcp:8443
 ```
 
-如果出现：
-
-```text
-adb: error: insufficient permissions for device: missing udev rules? user is in the plugdev group
-```
-
-说明 Linux 当前用户还没有 Quest USB 设备访问权限，`adb reverse` 没有真正连上设备。按下面顺序修复。
-
-先试 Ubuntu 自带 Android udev 规则：
+If ADB reports insufficient permissions, install Android udev rules, reload udev, restart ADB, reconnect the Quest, and accept USB debugging in the headset:
 
 ```bash
 sudo apt update
@@ -142,69 +107,28 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 adb kill-server
 adb start-server
-```
-
-然后拔插 Quest USB，在头显里允许 USB debugging，再检查：
-
-```bash
 adb devices
 adb reverse tcp:8443 tcp:8443
 ```
 
-如果还不行，手动添加 Quest/Meta udev 规则。先查看 USB vendor id：
-
-```bash
-lsusb
-```
-
-Quest/Meta 通常是 `2833`。添加规则：
+If required, add a rule for the usual Quest/Meta vendor ID `2833`:
 
 ```bash
 echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2833", MODE="0666", GROUP="plugdev", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/51-android-quest.rules
-
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 adb kill-server
 adb start-server
 ```
 
-再次拔插 Quest USB，并在头显里允许调试：
+Open `http://localhost:8443/` in the Quest 3 browser and click `Start Teleop`. The relay serves the page and broadcasts WebSocket messages at `ws://127.0.0.1:8443/ws`.
 
-```bash
-adb devices
-```
+## 4. Start teleoperation
 
-正常应看到：
-
-```text
-xxxxxxxx    device
-```
-
-如果显示 `unauthorized`，到 Quest 里确认 RSA 调试弹窗；如果没有弹窗，可以关开开发者模式，或换 USB 线/接口。成功后再运行：
-
-```bash
-adb reverse tcp:8443 tcp:8443
-```
-
-Quest 3 浏览器打开：
-
-```text
-http://localhost:8443/
-```
-
-进入页面后点击 `Start Teleop`。relay 提供网页和 `/ws` WebSocket，机器人控制进程会连接：
-
-```text
-ws://127.0.0.1:8443/ws
-```
-
-## 4. 启动 Teleoperate
-
-先 dryrun：
+Run a dry run first:
 
 ```bash
 mamba activate arx5-webxr-teleop
-
 lerobot-teleoperate \
   --robot.type=arx5_follower \
   --robot.control_mode=cartesian_control \
@@ -218,84 +142,13 @@ lerobot-teleoperate \
   --dryrun=True
 ```
 
-真机控制 xyz：
+For real hardware, omit `--dryrun=True` and optionally use `--teleop.control_orientation=True`. A smooth return-to-home can be configured with `--robot.home_move_duration_s=6.0`.
 
-```bash
-lerobot-teleoperate \
-  --robot.type=arx5_follower \
-  --robot.control_mode=cartesian_control \
-  --teleop.type=quest3_webxr \
-  --teleop.ws_url=ws://127.0.0.1:8443/ws \
-  --fps=30 \
-  --teleop.pos_sensitivity=0.5 \
-  --teleop.max_pos_velocity=1.0 \
-  --teleop.max_rot_velocity=0.8 \
-  --teleop.control_orientation=False \
-  --robot.home_move_duration_s=6.0
-```
+Bimanual dry run and hardware use `--robot.type=bi_arx5`, `--teleop.type=bi_quest3_webxr`, `--robot.enable_tactile_sensors=false`, and `--robot.cameras='{}'`. The defaults are `left_arm_port=can1`, `right_arm_port=can3`, both grippers open at `1.57`, and `robot.gripper_vel_max=20.0`.
 
-真机控制 xyz + 姿态：
+## 5. Calibration
 
-```bash
-lerobot-teleoperate \
-  --robot.type=arx5_follower \
-  --robot.control_mode=cartesian_control \
-  --teleop.type=quest3_webxr \
-  --teleop.ws_url=ws://127.0.0.1:8443/ws \
-  --fps=30 \
-  --teleop.pos_sensitivity=0.5 \
-  --teleop.max_pos_velocity=1.0 \
-  --teleop.control_orientation=True \
-  --teleop.max_rot_velocity=0.8 \
-  --robot.home_move_duration_s=6.0
-```
-
-双臂 dryrun：
-
-```bash
-lerobot-teleoperate \
-  --robot.type=bi_arx5 \
-  --robot.control_mode=cartesian_control \
-  --robot.enable_tactile_sensors=false \
-  --robot.cameras='{}' \
-  --teleop.type=bi_quest3_webxr \
-  --teleop.ws_url=ws://127.0.0.1:8443/ws \
-  --fps=30 \
-  --teleop.pos_sensitivity=0.5 \
-  --teleop.max_pos_velocity=1.0 \
-  --teleop.max_rot_velocity=0.8 \
-  --teleop.control_orientation=False \
-  --dryrun=True
-```
-
-双臂真机控制：
-
-```bash
-lerobot-teleoperate \
-  --robot.type=bi_arx5 \
-  --robot.control_mode=cartesian_control \
-  --robot.enable_tactile_sensors=false \
-  --robot.cameras='{}' \
-  --teleop.type=bi_quest3_webxr \
-  --teleop.ws_url=ws://127.0.0.1:8443/ws \
-  --fps=30 \
-  --teleop.pos_sensitivity=0.5 \
-  --teleop.max_pos_velocity=1.0 \
-  --teleop.max_rot_velocity=0.8 \
-  --teleop.control_orientation=False
-```
-
-双臂默认使用：
-
-```text
-left_arm_port=can1, right_arm_port=can3
-left_gripper_open=1.57, right_gripper_open=1.57
-robot.gripper_vel_max=20.0
-```
-
-## 5. 标定
-
-Quest 3 手柄虚拟 TCP 标定：
+Calibrate the Quest virtual TCP:
 
 ```bash
 python examples/quest3_webxr_tcp_pivot_calibration.py \
@@ -305,7 +158,7 @@ python examples/quest3_webxr_tcp_pivot_calibration.py \
   --output quest3_webxr_tcp_calibration.json
 ```
 
-ARX5 真实 TCP 标定：
+Calibrate the physical ARX5 TCP:
 
 ```bash
 python examples/arx5_tcp_four_point_calibration.py \
@@ -315,173 +168,52 @@ python examples/arx5_tcp_four_point_calibration.py \
   --output tcp_calibration_arx5.json
 ```
 
-临时使用两份标定：
+Pass the resulting offsets with `--teleop.controller_tcp_offset_xyz="[...]"` and `--robot.tcp_offset_xyz="[...]"`; bimanual operation accepts separate left and right offsets.
 
-```bash
-lerobot-teleoperate \
-  --robot.type=arx5_follower \
-  --robot.control_mode=cartesian_control \
-  --teleop.type=quest3_webxr \
-  --teleop.ws_url=ws://127.0.0.1:8443/ws \
-  --teleop.controller_tcp_offset_xyz="[-0.014441,-0.021764,-0.098030]" \
-  --robot.tcp_offset_xyz="[0.032896,0.002644,-0.006774]" \
-  --fps=30
-```
-
-双臂可以分别传左右手柄 TCP 和左右机械臂 TCP：
-
-```bash
-lerobot-teleoperate \
-  --robot.type=bi_arx5 \
-  --robot.control_mode=cartesian_control \
-  --robot.enable_tactile_sensors=false \
-  --robot.cameras='{}' \
-  --teleop.type=bi_quest3_webxr \
-  --teleop.ws_url=ws://127.0.0.1:8443/ws \
-  --teleop.left_controller_tcp_offset_xyz="[左手柄x,左手柄y,左手柄z]" \
-  --teleop.right_controller_tcp_offset_xyz="[右手柄x,右手柄y,右手柄z]" \
-  --robot.left_tcp_offset_xyz="[左臂x,左臂y,左臂z]" \
-  --robot.right_tcp_offset_xyz="[右臂x,右臂y,右臂z]" \
-  --fps=30
-```
-
-## 6. 完整链路
+## 6. Complete control chain
 
 ```mermaid
 flowchart TD
     A[Quest 3 Browser WebXR] --> B[vr-teleop-kit client.js]
     B -->|xr_frame JSON| C[vr-teleop-relay /ws]
     C --> D[Quest3WebXRTeleop WebSocket thread]
-    D --> E[_xr_frame_to_packet]
-    E --> F[Quest3RemotePacket]
-    F -->|right grip| G[deadman enable]
-    F -->|trigger value 0..1| H[continuous gripper target]
-    G --> I[Quest3WebXRControllerBase.get_action]
-    I --> J[axis mapping + warmup + filter + rate limit]
-    J --> K[LeRobot action dict]
-    H --> K
-    K --> L[ARX5Follower.send_action]
-    L --> M[pyarx EEFState]
-    M --> N[ARX5 SDK / CAN]
-    N --> O[ARX5 arm + gripper]
+    D --> E[Quest3RemotePacket]
+    E --> F[deadman / warmup / axis mapping]
+    F --> G[filter / rate limit / soft start]
+    G --> H[LeRobot action dict]
+    E -->|trigger 0..1| H
+    H --> I[ARX5Follower.send_action]
+    I --> J[pyarx / ARX5 SDK / CAN]
+    J --> K[ARX5 arm and gripper]
 ```
 
-### 6.1 Quest 浏览器
+### 6.1 Quest browser
 
-`vr-teleop-kit/src/vr_teleop_kit/relay/web/client.js` 在 WebXR session 中读取右手柄：
-
-```json
-{
-  "type": "xr_frame",
-  "controllers": {
-    "right": {
-      "position": [x, y, z],
-      "orientation": [qx, qy, qz, qw],
-      "buttons": [
-        {"p": false, "v": 0.0},
-        {"p": true, "v": 1.0}
-      ]
-    }
-  }
-}
-```
-
-右 grip 是 deadman enable；trigger 的 `v` 是连续值，用来控制夹爪开合程度。
+The WebXR client reads controller position, quaternion, and gamepad buttons. The right grip is the TCP deadman, the trigger continuously controls the gripper, and the reset button requests a return to the initial pose.
 
 ### 6.2 Relay
 
-`vr-teleop-relay` 只负责提供页面和广播 WebSocket 消息。它不做 IK、不做坐标映射、不直接控制机器人。
+`vr-teleop-relay` serves the WebXR page and broadcasts `/ws` messages. It does not perform IK, coordinate mapping, or direct robot control.
 
-### 6.3 WebXR Teleoperator
+### 6.3 WebXR teleoperator
 
-`Quest3WebXRTeleop` 后台线程连接 `/ws`，只保留最新一帧 `xr_frame`。每次 LeRobot 控制循环调用 `get_action()` 时，最新 WebXR 帧会被转换成内部 packet：
+The teleoperator keeps only the latest frame, converts WebXR `xyzw` quaternions to internal `wxyz`, performs warm-up, captures the reference pose, and emits a LeRobot action. Releasing the grip freezes the TCP target; gripper trigger updates remain independent.
 
-```text
-position -> controller position
-orientation xyzw -> quaternion wxyz
-grip button -> deadman enable
-trigger value -> gripper.pos
-reset button -> reset request
-```
+### 6.4 Coordinate mapping
 
-### 6.4 坐标映射
+WebXR uses X right, Y up, and Z toward the operator. ARX5 uses X forward, Y left, and Z up. World-space position and orientation deltas are mapped through `controller_world_to_robot_axes`, then filtered and rate-limited.
 
-WebXR world：
+### 6.5 ARX5 control
 
-```text
-X right
-Y up
-Z toward operator
-```
+`ARX5Follower.send_action()` converts `tcp.x/y/z`, `tcp.r1..r6`, and `gripper.pos` to an ARX5 SDK `EEFState` and sends it over CAN. Keep `--teleop.control_orientation=False` while validating translation axes. MIT gripper tuning is available with `--robot.gripper_control_mode=mit`, `--robot.gripper_mit_kp=0.8`, `--robot.gripper_mit_kd=0.05`, and `--robot.gripper_over_current_cnt_max=120`.
 
-ARX5 robot world：
-
-```text
-X forward
-Y left
-Z up
-```
-
-默认映射在 `Quest3WebXRConfig` 中：
-
-```python
-controller_world_to_robot_axes = [
-    [1.0, 0.0, 0.0],
-    [0.0, 0.0, -1.0],
-    [0.0, 1.0, 0.0],
-]
-```
-
-WebXR 版本默认使用 world 平移和 world 姿态 delta：
-
-```text
-controller_translation_source = "world"
-controller_rotation_source = "world"
-```
-
-这样手柄向上、向前、左右移动时，会先在 WebXR 世界坐标中取 delta，再映射到 ARX5 世界坐标。
-
-### 6.5 ARX5 控制
-
-`Quest3WebXRControllerBase.get_action()` 输出 LeRobot action：
-
-```python
-{
-    "tcp.x": ...,
-    "tcp.y": ...,
-    "tcp.z": ...,
-    "tcp.r1": ...,
-    "tcp.r2": ...,
-    "tcp.r3": ...,
-    "tcp.r4": ...,
-    "tcp.r5": ...,
-    "tcp.r6": ...,
-    "gripper.pos": ...,
-}
-```
-
-`ARX5Follower.send_action()` 将 action 转为 ARX5 SDK 的 `EEFState`，通过 `pyarx` 发送给 CAN 控制器。退出时使用平滑回 home：
-
-```bash
---robot.home_move_duration_s=6.0
-```
-
-## 7. 验证
+## 7. Verification
 
 ```bash
 mamba activate arx5-webxr-teleop
 lerobot-teleoperate --help
 ```
 
-应看到：
+The help output should list `arx5_follower`, `bi_arx5`, `quest3_webxr`, and `bi_quest3_webxr`. Do not put a space after the equals sign in CLI options, for example `--teleop.pos_sensitivity=0.5`.
 
-```text
---robot.type {arx5_follower}
---teleop.type {quest3_webxr}
-```
-
-命令行参数等号后不要加空格：
-
-```bash
---teleop.pos_sensitivity=0.5
-```
+For the engineering-level data flow and debugging record, see [`README_DETAILED_CHAIN.md`](README_DETAILED_CHAIN.md).
